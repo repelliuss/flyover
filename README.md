@@ -10,6 +10,10 @@
 
 A modern, aesthetic overlay display for *Flycheck* and *Flymake* in Emacs. Flyover is a full featured package with tons of features for you to customize.
 
+## Fork
+
+- This fork adds support for tab indented file.
+
 ## Features
 
 - 🎨 Beautiful, customizable overlays for error display and theme aware

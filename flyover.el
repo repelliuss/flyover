@@ -605,12 +605,16 @@ Only converts diagnostics whose level is in `flyover-levels'."
        :id nil))))
 
 (defun flyover--flycheck-error-begin (err)
-  "Determine the starting position of ERR."
+  "Determine the starting position of ERR.
+Checker-reported columns are character offsets, not screen columns, so
+tabs are advanced over one character at a time rather than via
+`move-to-column' (which would misplace the position on tab-indented
+lines)."
   (let ((column (when-let* ((col (flycheck-error-column err))) (1- col))))
     (save-excursion
       (forward-line (- (flycheck-error-line err) (line-number-at-pos)))
       (if column
-          (move-to-column column)
+          (goto-char (min (+ (point) column) (line-end-position)))
         (end-of-line)
         (beginning-of-visual-line)
         (while (looking-at "[[:space:]]")
@@ -634,14 +638,16 @@ Only converts diagnostics whose level is in `flyover-levels'."
 (defun flyover--convert-flycheck-error (err)
   "Convert a Flycheck ERR to flyover-error format."
   (when (and (featurep 'flycheck) (flycheck-error-p err))
-    (let ((level (flyover--normalize-level (flycheck-error-level err))))
+    (let* ((level (flyover--normalize-level (flycheck-error-level err)))
+           (beg (flyover--flycheck-error-begin err)))
       (when (memq level flyover-levels)
         (flyover-error-create
          :line (flycheck-error-line err)
-         ;; Flycheck columns are 1-based, convert to 0-based for consistency
-         :column (when-let* ((col (flycheck-error-column err)))
-                   (max 0 (1- col)))
-         :beg (flyover--flycheck-error-begin err)
+         ;; Store the screen column (not the raw character offset) so
+         ;; downstream padding/alignment is correct on tab-indented lines,
+         ;; where a tab expands to more than one screen column.
+         :column (save-excursion (goto-char beg) (current-column))
+         :beg beg
          :end (flyover--flycheck-error-end err)
          :level level
          :message (flycheck-error-message err)
